@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, Text } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  TouchableWithoutFeedback,
+  Keyboard
+} from 'react-native';
+import {
+  Text,
+  TextInput,
+  Button,
+  Title,
+  HelperText,
+  Card
+} from 'react-native-paper';
 import { auth } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 
@@ -9,49 +24,80 @@ export default function SignUpScreen({ navigation }) {
   const [error, setError]     = useState('');
 
   const handleSignUp = async () => {
+    setError('');
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      await createUserWithEmailAndPassword(auth, email.trim(), password);
       navigation.replace('Home');
     } catch (err) {
       setError(err.message);
     }
   };
 
+  const hasEmailError = () => error.includes('email');
+  const hasPasswordError = () => error.includes('password') || error.includes('weak-password');
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create an Account</Text>
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        autoCapitalize="none"
-        keyboardType="email-address"
-        onChangeText={setEmail}
-        value={email}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        onChangeText={setPassword}
-        value={password}
-      />
-      <Button title="Sign Up" onPress={handleSignUp} />
-      <View style={{ marginTop: 10 }}>
-        <Button
-          title="Already have an account? Sign In"
-          onPress={() => navigation.goBack()}
-        />
-      </View>
-    </View>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView
+        behavior={Platform.select({ ios: 'padding', android: undefined })}
+        style={styles.container}
+      >
+        <Card style={styles.card}>
+          <Card.Content>
+            <Title style={styles.title}>Create an Account</Title>
+
+            <TextInput
+              label="Email"
+              mode="outlined"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              style={styles.input}
+            />
+            <HelperText type="error" visible={hasEmailError()}>
+              { hasEmailError() ? error : '' }
+            </HelperText>
+
+            <TextInput
+              label="Password"
+              mode="outlined"
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              style={styles.input}
+            />
+            <HelperText type="error" visible={hasPasswordError()}>
+              { hasPasswordError() ? error : '' }
+            </HelperText>
+
+            <Button
+              mode="contained"
+              onPress={handleSignUp}
+              style={styles.button}
+              contentStyle={{ paddingVertical: 6 }}
+            >
+              Sign Up
+            </Button>
+
+            <Button
+              onPress={() => navigation.goBack()}
+              style={styles.link}
+            >
+              Already have an account? Sign In
+            </Button>
+          </Card.Content>
+        </Card>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex:1, justifyContent:'center', padding:16 },
-  title: { fontSize:24, marginBottom:16, textAlign:'center' },
-  input: {
-    borderWidth:1, borderRadius:4, padding:8, marginVertical:8
-  },
-  error: { color:'red', textAlign:'center', marginBottom:8 }
+  card: { padding: 8 },
+  title: { textAlign:'center', marginBottom:16 },
+  input: { marginBottom: 8 },
+  button: { marginTop: 8 },
+  link: { marginTop: 12 }
 });

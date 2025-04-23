@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import {
   View,
+  Platform,
+  StyleSheet,
+  KeyboardAvoidingView,
+  ScrollView
+} from 'react-native';
+import {
+  Card,
   Text,
   TextInput,
   Button,
-  FlatList,
-  StyleSheet
-} from 'react-native';
+  FAB,
+  Portal,
+  Modal,
+  Title
+} from 'react-native-paper';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { db, auth } from '../firebase';
 import {
   collection,
@@ -17,81 +27,123 @@ import {
   Timestamp
 } from 'firebase/firestore';
 
-export default function PantryScreen() {
-  const [items, setItems]     = useState([]);
-  const [name, setName]       = useState('');
-  const [qty, setQty]         = useState('');
-  const [expires, setExpires] = useState('');
+export default function PantryScreen({ navigation }) {
+  const [items, setItems] = useState([]);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [name, setName] = useState('');
+  const [qty, setQty] = useState('');
+  const [date, setDate] = useState(new Date());
 
+  // Listen for pantry items
   useEffect(() => {
     const q = query(
       collection(db, 'pantry'),
       where('uid', '==', auth.currentUser.uid)
     );
-    const unsub = onSnapshot(q, snap =>
+    return onSnapshot(q, snap =>
       setItems(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     );
-    return unsub;
   }, []);
 
   const handleAdd = async () => {
-    if (!name || !qty || !expires) return;
+    if (!name || !qty) return;
     await addDoc(collection(db, 'pantry'), {
       uid: auth.currentUser.uid,
       name,
       qty: Number(qty),
-      expires: Timestamp.fromDate(new Date(expires)),
+      expires: Timestamp.fromDate(date),
       createdAt: Timestamp.now()
     });
-    setName(''); setQty(''); setExpires('');
+    setName(''); setQty(''); setDate(new Date());
+    setModalVisible(false);
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>My Pantry</Text>
-      <FlatList
-        data={items}
-        keyExtractor={i => i.id}
-        renderItem={({ item }) => (
-          <View style={styles.item}>
-            <Text>
-              {item.name} — Qty: {item.qty} — Exp:{' '}
-              {item.expires.toDate().toLocaleDateString()}
-            </Text>
-          </View>
-        )}
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.select({ ios: 'padding', android: null })}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+        <Title style={styles.header}>My Pantry</Title>
+
+        {items.map(item => (
+          <Card key={item.id} style={styles.card}>
+            <Card.Content>
+              <Text>
+                {item.name} — Qty: {item.qty} — Exp: {item.expires.toDate().toLocaleDateString()}
+              </Text>
+            </Card.Content>
+          </Card>
+        ))}
+
+        <Portal>
+          <Modal
+            visible={modalVisible}
+            onDismiss={() => setModalVisible(false)}
+            contentContainerStyle={styles.modal}
+          >
+            <TextInput
+              label="Item Name"
+              mode="outlined"
+              value={name}
+              onChangeText={setName}
+              style={styles.input}
+            />
+            <TextInput
+              label="Quantity"
+              mode="outlined"
+              keyboardType="number-pad"
+              value={qty}
+              onChangeText={setQty}
+              style={styles.input}
+            />
+            <DateTimePicker
+              value={date}
+              mode="date"
+              display="default"
+              onChange={(_, d) => d && setDate(d)}
+              style={{ width: '100%', marginVertical: 8 }}
+            />
+            <Button mode="contained" onPress={handleAdd}>
+              Add to Pantry
+            </Button>
+          </Modal>
+        </Portal>
+      </ScrollView>
+
+      <FAB
+        icon="plus"
+        style={styles.fab}
+        onPress={() => setModalVisible(true)}
       />
-      <TextInput
-        style={styles.input}
-        placeholder="Item name"
-        value={name}
-        onChangeText={setName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Quantity"
-        keyboardType="numeric"
-        value={qty}
-        onChangeText={setQty}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Expiry (YYYY-MM-DD)"
-        value={expires}
-        onChangeText={setExpires}
-      />
-      <Button title="Add to Pantry" onPress={handleAdd} />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex:1, padding:16 },
-  header: { fontSize:24, marginBottom:16 },
-  input: {
-    borderWidth:1, borderRadius:4, padding:8, marginVertical:4
+  container: {
+    padding: 16,
+    paddingBottom: 80
   },
-  item: {
-    padding:8, borderBottomWidth:1, borderColor:'#ddd'
+  header: {
+    marginBottom: 16,
+    textAlign: 'center'
+  },
+  card: {
+    marginBottom: 12
+  },
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16
+  },
+  modal: {
+    backgroundColor: 'white',
+    padding: 20,
+    margin: 20,
+    borderRadius: 8
+  },
+  input: {
+    marginBottom: 12
   }
 });
